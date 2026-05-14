@@ -18,6 +18,9 @@ This tool was created to simplify the repetitive process of manually locating pu
 - Filters only:
   - Running instances
   - Instances with public IP addresses
+- Organizes servers automatically by stack
+- Optional support for appending EC2 tag values into RDCMan folder names
+- Case-insensitive EC2 tag key matching
 - Keeps child RDCMan folders collapsed by default for cleaner organization upon opening
 - Uses temporary AWS credentials only during runtime
 - DOES NOT store any credentials
@@ -35,13 +38,13 @@ This tool was created to simplify the repetitive process of manually locating pu
 
 ![RDG File Generation](images/image2.png)
 
-## Example RDCMan Server Inventory
+## Example RDCMan Inventory
 
-![RDCMan Server Inventory](images/image3.png)
+![RDCMan Inventory](images/image3.png)
 
-## Generated RDCMan Group Structure
+## Generated RDCMan Stack Grouping
 
-![Generated RDCMan Group Structure](images/image4.png)
+![Generated RDCMan Stack Grouping](images/image4.png)
 
 ---
 
@@ -119,6 +122,42 @@ Credentials are:
 
 ---
 
+# Optional Folder Tag Support
+
+The script can optionally append EC2 tag values into RDCMan folder names.
+
+Example:
+
+```text
+prod-47 (AWS Tag Value)
+```
+
+When prompted:
+
+```text
+Folder tag key [optional]:
+```
+
+Examples:
+- `billing`
+- `department`
+- `environment`
+
+Tag matching is case-insensitive.
+
+Examples:
+- `Billing`
+- `billing`
+- `BILLING`
+
+If left blank, folder names remain:
+
+```text
+prod-47
+```
+
+---
+
 # RDCMan Behavior
 
 Generated `.rdg` files:
@@ -141,6 +180,12 @@ This tool:
 # Executable Validation
 
 PyInstaller was used during development to package and test the script as a standalone Windows executable.
+
+Example:
+
+```bash
+pyinstaller --onefile --name aws-rdg-generator build_rdg.py
+```
 
 This repository intentionally includes source code only for transparency and easier review.
 

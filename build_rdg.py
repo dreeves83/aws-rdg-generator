@@ -101,11 +101,15 @@ def build_name_filters_for_all():
     ]
 
 
-def get_name_tag(instance):
+def get_tag_value(instance, key_name):
     for tag in instance.get("Tags", []):
-        if tag["Key"] == "Name":
-            return tag["Value"]
+        if tag.get("Key", "").lower() == key_name.lower():
+            return tag.get("Value")
     return None
+
+
+def get_name_tag(instance):
+    return get_tag_value(instance, "Name")
 
 
 def stack_sort_key(stack_name):
@@ -128,7 +132,7 @@ def validate_credentials(session):
         return False
 
 
-def get_instances(session, name_filters):
+def get_instances(session, name_filters, folder_tag_key=None):
     ec2 = session.client("ec2")
     instances = []
 
@@ -154,9 +158,14 @@ def get_instances(session, name_filters):
                 if len(parts) < 3:
                     continue
 
+                folder_tag_value = None
+                if folder_tag_key:
+                    folder_tag_value = get_tag_value(instance, folder_tag_key)
+
                 instances.append({
                     "stack": "-".join(parts[:2]),
                     "name": name,
+                    "folder_tag_value": folder_tag_value,
                     "public_ip": public_ip,
                 })
 
@@ -191,7 +200,17 @@ def build_rdg(instances, output_file):
 
     for stack_name in sorted(stacks.keys(), key=stack_sort_key):
         group = ET.SubElement(file_node, "group")
-        add_group_properties(group, stack_name, expanded=False)
+
+        folder_tag_values = sorted({
+            i["folder_tag_value"] for i in stacks[stack_name]
+            if i.get("folder_tag_value")
+        })
+
+        group_name = stack_name
+        if folder_tag_values:
+            group_name = f"{stack_name} ({folder_tag_values[0]})"
+
+        add_group_properties(group, group_name, expanded=False)
 
         for instance in stacks[stack_name]:
             server = ET.SubElement(group, "server")
@@ -248,6 +267,16 @@ def choose_scope():
         print("Choose 1, 2, or 3.\n")
 
 
+def choose_folder_tag_key():
+    print("\nOptional folder tag:")
+    print("Enter an EC2 tag key to append its value to each stack folder.")
+    print("Example: Billing -> prod-47 (Customer Name)")
+    print("Leave blank to keep folder names as prod-XX.")
+
+    value = input("\nFolder tag key [optional]: ").strip()
+    return value if value else None
+
+
 def main():
     print("\nAWS to RDCMan RDG Generator")
     print("--------------------------")
@@ -267,12 +296,13 @@ def main():
         sys.exit(1)
 
     name_filters = choose_scope()
+    folder_tag_key = choose_folder_tag_key()
     output_file = get_output_path()
 
     print("\nQuerying EC2 instances...")
 
     try:
-        instances = get_instances(session, name_filters)
+        instances = get_instances(session, name_filters, folder_tag_key)
     except ClientError as e:
         print("\nEC2 query failed.")
         print(e)
@@ -281,7 +311,10 @@ def main():
     print(f"\nFound {len(instances)} running instances with public IPs:\n")
 
     for instance in instances:
-        print(f"{instance['stack']} | {instance['name']} | {instance['public_ip']}")
+        if folder_tag_key:
+            print(f"{instance['stack']} | {instance.get('folder_tag_value') or 'TAG_NOT_FOUND'} | {instance['name']} | {instance['public_ip']}")
+        else:
+            print(f"{instance['stack']} | {instance['name']} | {instance['public_ip']}")
 
     if not instances:
         print("\nNo matching instances found. No RDG file created.")
